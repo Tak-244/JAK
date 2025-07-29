@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Busca de Logs</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #00f6ff;
+            --text-color: #e0eafc;
+            --bg-color: #0a0f1e;
+            --surface-color: rgba(16, 18, 27, 0.7);
+            --border-color: rgba(0, 246, 255, 0.2);
+            --monospace-font: 'Roboto Mono', monospace;
+            --sans-serif-font: 'Sora', sans-serif;
+        }
+
+        body {
+            font-family: var(--sans-serif-font);
+            line-height: 1.6;
+            margin: 0;
+            padding: 2rem 1rem;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at 1px 1px, rgba(0, 246, 255, 0.1) 1px, transparent 0);
+            background-size: 20px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            margin: auto;
+            background: var(--surface-color);
+            padding: 2.5rem;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 0 40px rgba(0, 246, 255, 0.1);
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 2rem;
+        }
+
+        .stat-card { text-align: center; }
+        .stat-card .value { font-family: var(--monospace-font); font-size: 1.75rem; font-weight: 500; color: var(--primary-color); line-height: 1; }
+        .stat-card .label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #8a9bc7; }
+        
+        .history-grid {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            background: rgba(0,0,0,0.2);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        
+        h1 { text-align: center; margin: 0 0 2rem 0; font-weight: 700; }
+        
+        .form-group { display: flex; gap: 1rem; margin-bottom: 1rem; }
+        
+        input[type="text"] { flex-grow: 1; padding: 0.75rem 1rem; background-color: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-color); font-size: 1rem; transition: all 0.3s ease; }
+        input[type="text"]:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(0, 246, 255, 0.2); }
+        
+        button { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem 1.5rem; border: 1px solid var(--primary-color); background: transparent; color: var(--primary-color); border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1rem; transition: all 0.3s ease; }
+        button:hover:not(:disabled) { background-color: rgba(0, 246, 255, 0.1); box-shadow: 0 0 15px rgba(0, 246, 255, 0.2); }
+        button:disabled { border-color: #555; color: #555; cursor: not-allowed; }
+        
+        .options { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 2rem; color: #b4c2f0; }
+        input[type="checkbox"] { accent-color: var(--primary-color); width: 16px; height: 16px; }
+
+        #status { display: flex; align-items: center; gap: 0.75rem; padding: 1rem; border-radius: 8px; background-color: rgba(0,0,0,0.3); min-height: 24px; margin-bottom: 1.5rem; border: 1px solid var(--border-color); }
+        .spinner { width: 20px; height: 20px; border: 3px solid rgba(0, 246, 255, 0.2); border-top-color: var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
+        .hidden { display: none !important; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #download-container { text-align: center; margin: 1.5rem 0; }
+        
+        #results { display: flex; flex-direction: column; gap: 0.75rem; max-height: 40vh; overflow-y: auto; padding-right: 10px; }
+        #results::-webkit-scrollbar { width: 6px; }
+        #results::-webkit-scrollbar-track { background: transparent; }
+        #results::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px;}
+        #results::-webkit-scrollbar-thumb:hover { background: var(--primary-color); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .result-item { background: rgba(0,0,0,0.2); padding: 1rem; border: 1px solid var(--border-color); border-radius: 8px; font-family: var(--monospace-font); word-break: break-all; white-space: pre-wrap; font-size: 0.9rem; animation: fadeIn 0.5s ease; }
+        .result-item strong { color: var(--primary-color); font-weight: normal; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <div class="dashboard">
+            <div class="stat-card">
+                <div id="time" class="value">--:--:--</div>
+                <div class="label">Hora Local</div>
+            </div>
+            <div class="stat-card">
+                <div id="battery" class="value">--%</div>
+                <div class="label">Bateria</div>
+            </div>
+            <div class="stat-card">
+                <div id="file-count" class="value">0</div>
+                <div class="label">Clouds (.txt)</div>
+            </div>
+            <div class="stat-card">
+                <div id="total-lines" class="value">0</div>
+                <div class="label">Total de Linhas</div>
+            </div>
+            <div class="stat-card">
+                <div id="total-size" class="value">0 GB</div>
+                <div class="label">Tamanho Total</div>
+            </div>
+            <div class="stat-card history-grid">
+                <div class="stat-card">
+                    <div id="h24" class="value">0</div><div class="label">Buscas (24h)</div>
+                </div>
+                <div class="stat-card">
+                    <div id="d3" class="value">0</div><div class="label">Buscas (3d)</div>
+                </div>
+                <div class="stat-card">
+                    <div id="d7" class="value">0</div><div class="label">Buscas (7d)</div>
+                </div>
+                <div class="stat-card">
+                    <div id="d30" class="value">0</div><div class="label">Buscas (30d)</div>
+                </div>
+            </div>
+        </div>
+        
+        <h1>Painel de Busca</h1>
+        <form id="searchForm">
+            <div class="form-group">
+                <input type="text" id="urlInput" placeholder="Digite a URL para buscar..." required>
+                <button type="submit" id="searchButton"><span>Buscar</span></button>
+            </div>
+            <div class="options">
+                <input type="checkbox" id="includeUrlCheckbox" checked>
+                <label for="includeUrlCheckbox">Incluir URL nos resultados e no download</label>
+            </div>
+        </form>
+
+        <div id="status"><span id="status-text">Aguardando busca...</span></div>
+        <div id="download-container" class="hidden"><button id="downloadButton">Baixar Resultados</button></div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const elements = {
+            time: document.getElementById('time'),
+            battery: document.getElementById('battery'),
+            fileCount: document.getElementById('file-count'),
+            totalLines: document.getElementById('total-lines'),
+            totalSize: document.getElementById('total-size'),
+            history: {
+                h24: document.getElementById('h24'),
+                d3: document.getElementById('d3'),
+                d7: document.getElementById('d7'),
+                d30: document.getElementById('d30')
+            },
+            searchForm: document.getElementById('searchForm'),
+            urlInput: document.getElementById('urlInput'),
+            searchButton: document.getElementById('searchButton'),
+            includeUrlCheckbox: document.getElementById('includeUrlCheckbox'),
+            statusDiv: document.getElementById('status'),
+            statusText: document.getElementById('status-text'),
+            downloadContainer: document.getElementById('download-container'),
+            downloadButton: document.getElementById('downloadButton'),
+            resultsDiv: document.getElementById('results')
+        };
+        
+        let eventSource;
+        let foundResults = [];
+
+        // --- Dashboard & Real-time Info ---
+        function updateTime() {
+            elements.time.textContent = new Date().toLocaleTimeString('pt-BR');
+        }
+
+        async function updateBattery() {
+            if ('getBattery' in navigator) {
+                try {
+                    const battery = await navigator.getBattery();
+                    const level = Math.floor(battery.level * 100);
+                    elements.battery.textContent = `${level}% ${battery.charging ? '⚡' : ''}`;
+                } catch (e) {
+                    elements.battery.textContent = "N/A";
+                }
+            } else {
+                elements.battery.textContent = "N/A";
+            }
+        }
+
+        async function loadDashboard() {
+            try {
+                const response = await fetch('api_sse.php?action=dashboard');
+                const data = await response.json();
+                elements.fileCount.textContent = data.total_files.toLocaleString('pt-BR');
+                elements.totalLines.textContent = data.total_lines.toLocaleString('pt-BR');
+                elements.totalSize.textContent = `${data.total_size_gb} GB`;
+                elements.history.h24.textContent = data.history.h24.toLocaleString('pt-BR');
+                elements.history.d3.textContent = data.history.d3.toLocaleString('pt-BR');
+                elements.history.d7.textContent = data.history.d7.toLocaleString('pt-BR');
+                elements.history.d30.textContent = data.history.d30.toLocaleString('pt-BR');
+            } catch (error) {
+                console.error("Erro ao carregar dashboard:", error);
+            }
+        }
+        
+        // --- Main Search Logic ---
+        elements.searchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const url = elements.urlInput.value.trim();
+            if (!url) return;
+
+            if (eventSource) eventSource.close();
+            foundResults = [];
+            elements.resultsDiv.innerHTML = '';
+            elements.downloadContainer.classList.add('hidden');
+            elements.searchButton.disabled = true;
+            elements.statusDiv.innerHTML = '<div class="spinner"></div><span id="status-text">Buscando... Conexão com o servidor aberta.</span>';
+            const newStatusText = document.getElementById('status-text');
+
+            eventSource = new EventSource(`api_sse.php?url=${encodeURIComponent(url)}`);
+
+            eventSource.addEventListener('found_result', (event) => {
+                const data = JSON.parse(event.data);
+                foundResults.push(data); 
+
+                const item = document.createElement('div');
+                item.className = 'result-item';
+                
+                const includeUrl = elements.includeUrlCheckbox.checked;
+                if (includeUrl) {
+                    item.innerHTML = `<strong>URL:</strong> ${data.url}<br><strong>User:</strong> ${data.user}<br><strong>Pass:</strong> ${data.pass}`;
+                } else {
+                    item.innerHTML = `<strong>User:</strong> ${data.user}<br><strong>Pass:</strong> ${data.pass}`;
+                }
+                
+                elements.resultsDiv.prepend(item);
+                newStatusText.textContent = `Buscando... ${foundResults.length} resultado(s) encontrado(s).`;
+            });
+
+            eventSource.addEventListener('done', (event) => {
+                const data = JSON.parse(event.data);
+                elements.statusDiv.innerHTML = `<span>Busca concluída! <strong>${data.total_encontrados}</strong> resultados em <strong>${data.tempo_de_busca}</strong>.</span>`;
+                
+                if (foundResults.length > 0) {
+                    elements.downloadContainer.classList.remove('hidden');
+                }
+                
+                eventSource.close();
+                elements.searchButton.disabled = false;
+                loadDashboard(); // Recarrega as estatísticas do dashboard após uma busca
+            });
+            
+             eventSource.addEventListener('error', (event) => {
+                let errorMessage = 'Erro de conexão ou busca interrompida.';
+                elements.statusDiv.innerHTML = `<span>${errorMessage}</span>`;
+                eventSource.close();
+                elements.searchButton.disabled = false;
+            });
+        });
+
+        // --- Download Logic ---
+        elements.downloadButton.addEventListener('click', () => {
+            if (foundResults.length === 0) return;
+
+            const includeUrl = elements.includeUrlCheckbox.checked;
+            const fileContent = foundResults.map(res => includeUrl ? `${res.url}:${res.user}:${res.pass}` : `${res.user}:${res.pass}`).join('\n');
+            const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+            
+            const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            const searchTerm = elements.urlInput.value.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'logs';
+            const filename = `${searchTerm}_${timestamp}.txt`;
+
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        });
+
+        // Initial Page Load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateTime();
+            setInterval(updateTime, 1000);
+            updateBattery();
+            setInterval(updateBattery, 60000); // Update battery every minute
+            loadDashboard();
+        });
+    </script>
+</body>
+</html>
